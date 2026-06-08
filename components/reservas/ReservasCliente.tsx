@@ -19,16 +19,16 @@ interface Reserva {
 }
 
 const SEMAFORO: Record<string, { bg: string; text: string; label: string; dot: string }> = {
-  paid:    { bg: "bg-green-100", text: "text-green-700", label: "Pagado",    dot: "bg-green-500"  },
-  partial: { bg: "bg-amber-100", text: "text-amber-700", label: "Abono",     dot: "bg-amber-500"  },
-  unpaid:  { bg: "bg-red-100",   text: "text-red-700",   label: "Pendiente", dot: "bg-red-500"    },
+  paid:    { bg: "bg-green-100", text: "text-green-700", label: "Pagado",    dot: "bg-green-500" },
+  partial: { bg: "bg-amber-100", text: "text-amber-700", label: "Abono",     dot: "bg-amber-500" },
+  unpaid:  { bg: "bg-red-100",   text: "text-red-700",   label: "Pendiente", dot: "bg-red-500"   },
 };
 
 const METODOS_PAGO = [
-  { value: "cash",     label: "Efectivo" },
-  { value: "nequi",    label: "Nequi"    },
-  { value: "transfer", label: "Transferencia" },
-  { value: "other",    label: "Otro"     },
+  { value: "cash",     label: "Efectivo"       },
+  { value: "nequi",    label: "Nequi"          },
+  { value: "transfer", label: "Transferencia"  },
+  { value: "other",    label: "Otro"           },
 ];
 
 function hoy() { return new Date().toISOString().split("T")[0]; }
@@ -45,21 +45,20 @@ export default function ReservasCliente() {
   // Modal de pago
   const [reservaSeleccionada, setReservaSeleccionada] = useState<Reserva | null>(null);
   const [formPago, setFormPago] = useState({
-    amount:        "",
-    paymentMethod: "nequi",
-    reference:     "",
-    notes:         "",
+    amount: "", paymentMethod: "nequi", reference: "", notes: "",
   });
   const [guardandoPago, setGuardandoPago] = useState(false);
   const [errorPago, setErrorPago]         = useState("");
 
+  // Modal de cancelación
+  const [reservaACancelar, setReservaACancelar]     = useState<Reserva | null>(null);
+  const [motivoCancelacion, setMotivoCancelacion]   = useState("");
+  const [cancelando, setCancelando]                 = useState(false);
+
   // Formulario nueva reserva
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [form, setForm] = useState({
-    fieldId:   "",
-    startTime: "08:00",
-    endTime:   "09:00",
-    notes:     "",
+    fieldId: "", startTime: "08:00", endTime: "09:00", notes: "",
   });
 
   useEffect(() => { cargarCanchas(); }, []);
@@ -90,13 +89,11 @@ export default function ReservasCliente() {
   async function crearReserva() {
     if (!clienteSeleccionado) { setError("Debes seleccionar un cliente"); return; }
     if (!form.fieldId)        { setError("Debes seleccionar una cancha");  return; }
-
     setGuardando(true);
     setError("");
-
     try {
       const res = await fetch("/api/reservas", {
-        method:  "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fieldId:         form.fieldId,
@@ -107,31 +104,25 @@ export default function ReservasCliente() {
           notes:           form.notes || null,
         }),
       });
-
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error al crear la reserva"); return; }
-
       await cargarReservas();
       setMostrarForm(false);
       setClienteSeleccionado(null);
       setForm(f => ({ ...f, startTime: "08:00", endTime: "09:00", notes: "" }));
-
     } catch { setError("Error de conexión"); }
     finally  { setGuardando(false); }
   }
 
   async function registrarPago() {
     if (!reservaSeleccionada || !formPago.amount) {
-      setErrorPago("El monto es obligatorio");
-      return;
+      setErrorPago("El monto es obligatorio"); return;
     }
-
     setGuardandoPago(true);
     setErrorPago("");
-
     try {
       const res = await fetch("/api/pagos", {
-        method:  "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reservationId: reservaSeleccionada.id,
@@ -141,17 +132,33 @@ export default function ReservasCliente() {
           notes:         formPago.notes     || null,
         }),
       });
-
       const data = await res.json();
       if (!res.ok) { setErrorPago(data.error ?? "Error al registrar pago"); return; }
-
-      // Éxito — cerrar modal y recargar
       setReservaSeleccionada(null);
       setFormPago({ amount: "", paymentMethod: "nequi", reference: "", notes: "" });
       await cargarReservas();
-
     } catch { setErrorPago("Error de conexión"); }
     finally  { setGuardandoPago(false); }
+  }
+
+  async function cancelarReserva() {
+    if (!reservaACancelar) return;
+    setCancelando(true);
+    try {
+      const res = await fetch(`/api/reservas/${reservaACancelar.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cancellationReason: motivoCancelacion || "Sin motivo especificado",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Error al cancelar"); return; }
+      setReservaACancelar(null);
+      setMotivoCancelacion("");
+      await cargarReservas();
+    } catch { setError("Error de conexión"); }
+    finally  { setCancelando(false); }
   }
 
   return (
@@ -192,7 +199,6 @@ export default function ReservasCliente() {
             </p>
             <BuscadorCliente onClienteSeleccionado={setClienteSeleccionado} />
           </div>
-
           {clienteSeleccionado && (
             <div className="border-t border-gray-50 pt-4">
               <p className="text-xs text-gray-500 mb-3 font-medium">
@@ -262,7 +268,8 @@ export default function ReservasCliente() {
                 <th className="text-right text-xs text-gray-400 font-medium px-5 py-3">Total</th>
                 <th className="text-right text-xs text-gray-400 font-medium px-5 py-3">Abonado</th>
                 <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Estado</th>
-                <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Acción</th>
+                <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Pago</th>
+                <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Cancelar</th>
               </tr>
             </thead>
             <tbody>
@@ -298,10 +305,24 @@ export default function ReservasCliente() {
                             setErrorPago("");
                             setFormPago({ amount: "", paymentMethod: "nequi", reference: "", notes: "" });
                           }}
-                          className="text-xs text-green-600 hover:text-green-800
-                                     font-medium border border-green-200 hover:border-green-400
+                          className="text-xs text-green-600 hover:text-green-800 font-medium
+                                     border border-green-200 hover:border-green-400
                                      px-3 py-1 rounded-lg transition-colors">
-                          💰 Registrar pago
+                          💰 Pago
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      {reserva.status !== "cancelled" && (
+                        <button
+                          onClick={() => {
+                            setReservaACancelar(reserva);
+                            setMotivoCancelacion("");
+                          }}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium
+                                     border border-red-200 hover:border-red-400
+                                     px-3 py-1 rounded-lg transition-colors">
+                          ✕ Cancelar
                         </button>
                       )}
                     </td>
@@ -313,11 +334,53 @@ export default function ReservasCliente() {
         </div>
       )}
 
+      {/* Modal de cancelación */}
+      {reservaACancelar && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+            <h2 className="text-base font-semibold text-gray-900 mb-1">
+              Cancelar reserva
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              {reservaACancelar.customer.fullName} —{" "}
+              {reservaACancelar.startTime} a {reservaACancelar.endTime}
+            </p>
+            <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-4">
+              <p className="text-sm text-red-700">
+                ⚠️ Esta acción liberará el slot y no se puede deshacer.
+              </p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-xs text-gray-500 mb-1">
+                Motivo de cancelación (opcional)
+              </label>
+              <input type="text"
+                placeholder="Ej: El cliente no se presentó"
+                value={motivoCancelacion}
+                onChange={e => setMotivoCancelacion(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2
+                           text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setReservaACancelar(null)}
+                className="flex-1 border border-gray-200 text-gray-600 text-sm
+                           font-medium py-2 rounded-xl hover:bg-gray-50 transition-colors">
+                Volver
+              </button>
+              <button onClick={cancelarReserva} disabled={cancelando}
+                className="flex-1 bg-red-500 hover:bg-red-600 disabled:bg-gray-300
+                           text-white text-sm font-medium py-2 rounded-xl transition-colors">
+                {cancelando ? "Cancelando..." : "Confirmar cancelación"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de pago */}
       {reservaSeleccionada && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
-
             <h2 className="text-base font-semibold text-gray-900 mb-1">
               Registrar pago
             </h2>
@@ -325,8 +388,6 @@ export default function ReservasCliente() {
               {reservaSeleccionada.customer.fullName} —{" "}
               {reservaSeleccionada.startTime} a {reservaSeleccionada.endTime}
             </p>
-
-            {/* Resumen financiero */}
             <div className="bg-gray-50 rounded-xl p-3 mb-4 flex justify-between text-sm">
               <div>
                 <p className="text-xs text-gray-400">Total</p>
@@ -348,12 +409,10 @@ export default function ReservasCliente() {
                 </p>
               </div>
             </div>
-
             {errorPago && (
               <div className="bg-red-50 text-red-600 text-sm rounded-xl
                               px-4 py-3 mb-4">{errorPago}</div>
             )}
-
             <div className="space-y-3">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Monto a abonar *</label>
@@ -387,7 +446,6 @@ export default function ReservasCliente() {
                              text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
               </div>
             </div>
-
             <div className="flex gap-3 mt-5">
               <button onClick={() => setReservaSeleccionada(null)}
                 className="flex-1 border border-gray-200 text-gray-600 text-sm
