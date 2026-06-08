@@ -3,6 +3,7 @@ export default function SuscripcionVencida() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-md w-full text-center">
 
+        {/* Ícono semáforo rojo */}
         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <span className="text-3xl">🔴</span>
         </div>
@@ -16,6 +17,7 @@ export default function SuscripcionVencida() {
           Para reactivar tu cuenta, comunícate con la administradora.
         </p>
 
+        {/* Datos de contacto — personaliza con los tuyos */}
         <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-600">
           <p className="font-medium text-gray-800 mb-1">
             Contacta a la administradora
