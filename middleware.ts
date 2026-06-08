@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { stackServerApp } from "@/lib/stack";
 
 // En Next.js 16 la función se llama "proxy" en lugar de "middleware"
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname, hostname } = request.nextUrl;
 
   // ── 1. Rutas públicas: dejar pasar sin verificar ──────────────
