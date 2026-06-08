@@ -16,49 +16,30 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { cancellationReason } = body;
+    const { fullName, email, notes } = body;
 
-    // Verificar que la reserva pertenece al tenant
-    const reserva = await prisma.reservation.findFirst({
-      where: {
-        id,
-        tenantId:  tenantUser.tenantId,
-        deletedAt: null,
-        status:    { not: "cancelled" },
-      },
+    const cliente = await prisma.customer.findFirst({
+      where: { id, tenantId: tenantUser.tenantId, deletedAt: null },
     });
+    if (!cliente) return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
 
-    if (!reserva) {
-      return NextResponse.json(
-        { error: "Reserva no encontrada o ya cancelada" },
-        { status: 404 }
-      );
-    }
-
-    // Cancelar la reserva
-    const reservaCancelada = await prisma.reservation.update({
+    const actualizado = await prisma.customer.update({
       where: { id },
       data: {
-        status:             "cancelled",
-        cancellationReason: cancellationReason ?? "Sin motivo especificado",
+        fullName: fullName ?? cliente.fullName,
+        email:    email    ?? cliente.email,
+        notes:    notes    ?? cliente.notes,
       },
     });
 
-    // Decrementar el contador de reservas del cliente
-    await prisma.customer.update({
-      where: { id: reserva.customerId },
-      data:  { reservationsCount: { decrement: 1 } },
-    });
-
-    return NextResponse.json(reservaCancelada);
-
+    return NextResponse.json(actualizado);
   } catch (error) {
-    console.error("Error cancelando reserva:", error);
+    console.error("Error editando cliente:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }
 
-export async function PUT(
+export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -70,22 +51,21 @@ export async function PUT(
     if (!tenantUser) return NextResponse.json({ error: "Tenant no encontrado" }, { status: 404 });
 
     const { id } = await params;
-    const body = await request.json();
-    const { notes } = body;
 
-    const reserva = await prisma.reservation.findFirst({
+    const cliente = await prisma.customer.findFirst({
       where: { id, tenantId: tenantUser.tenantId, deletedAt: null },
     });
-    if (!reserva) return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
+    if (!cliente) return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
 
-    const actualizada = await prisma.reservation.update({
+    // Soft delete
+    await prisma.customer.update({
       where: { id },
-      data:  { notes: notes ?? reserva.notes },
+      data:  { deletedAt: new Date() },
     });
 
-    return NextResponse.json(actualizada);
+    return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("Error editando reserva:", error);
+    console.error("Error eliminando cliente:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }

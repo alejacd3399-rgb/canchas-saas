@@ -27,13 +27,17 @@ export default function AdminTenantsPage() {
   const [error, setError]             = useState("");
   const [exito, setExito]             = useState("");
 
+  // Edición
+  const [tenantEditando, setTenantEditando]   = useState<Tenant | null>(null);
+  const [formEditar, setFormEditar] = useState({
+    businessName: "", email: "", phone: "", isActive: true,
+  });
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [errorEdicion, setErrorEdicion]         = useState("");
+
   const [form, setForm] = useState({
-    businessName: "",
-    slug:         "",
-    email:        "",
-    phone:        "",
-    planName:     "Plan Básico",
-    price:        "50000",
+    businessName: "", slug: "", email: "", phone: "",
+    planName: "Plan Básico", price: "50000",
     startsAt:  new Date().toISOString().split("T")[0],
     expiresAt: (() => {
       const d = new Date();
@@ -57,32 +61,29 @@ export default function AdminTenantsPage() {
     cargar();
   }, []);
 
+  async function recargarTenants() {
+    const res  = await fetch("/api/admin/tenants", {
+      headers: { "x-admin-key": ADMIN_KEY },
+    });
+    const data = await res.json();
+    if (Array.isArray(data)) setTenants(data);
+  }
+
   async function crearTenant() {
     if (!form.businessName || !form.slug) {
-      setError("Nombre y slug son obligatorios");
-      return;
+      setError("Nombre y slug son obligatorios"); return;
     }
-
     setGuardando(true);
     setError("");
     setExito("");
-
     try {
       const res = await fetch("/api/admin/tenants", {
         method:  "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-key":  ADMIN_KEY,
-        },
-        body: JSON.stringify(form),
+        headers: { "Content-Type": "application/json", "x-admin-key": ADMIN_KEY },
+        body:    JSON.stringify(form),
       });
       const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error ?? "Error al crear el tenant");
-        return;
-      }
-
+      if (!res.ok) { setError(data.error ?? "Error al crear"); return; }
       setExito(`✅ Tenant "${form.businessName}" creado exitosamente`);
       setMostrarForm(false);
       setForm({
@@ -95,19 +96,28 @@ export default function AdminTenantsPage() {
           return d.toISOString().split("T")[0];
         })(),
       });
+      await recargarTenants();
+    } catch { setError("Error de conexión"); }
+    finally  { setGuardando(false); }
+  }
 
-      // Recargar lista
-      const res2  = await fetch("/api/admin/tenants", {
-        headers: { "x-admin-key": ADMIN_KEY },
+  async function guardarEdicionTenant() {
+    if (!tenantEditando) return;
+    if (!formEditar.businessName) { setErrorEdicion("El nombre es obligatorio"); return; }
+    setGuardandoEdicion(true);
+    setErrorEdicion("");
+    try {
+      const res = await fetch(`/api/admin/tenants/${tenantEditando.id}`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json", "x-admin-key": ADMIN_KEY },
+        body:    JSON.stringify(formEditar),
       });
-      const data2 = await res2.json();
-      if (Array.isArray(data2)) setTenants(data2);
-
-    } catch {
-      setError("Error de conexión");
-    } finally {
-      setGuardando(false);
-    }
+      const data = await res.json();
+      if (!res.ok) { setErrorEdicion(data.error ?? "Error"); return; }
+      setTenantEditando(null);
+      await recargarTenants();
+    } catch { setErrorEdicion("Error de conexión"); }
+    finally  { setGuardandoEdicion(false); }
   }
 
   return (
@@ -229,6 +239,7 @@ export default function AdminTenantsPage() {
                 <th className="text-left text-xs text-gray-400 font-medium px-5 py-3">Vence</th>
                 <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Estado</th>
                 <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Datos</th>
+                <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -264,10 +275,94 @@ export default function AdminTenantsPage() {
                   <td className="px-5 py-3 text-center text-xs text-gray-500">
                     {tenant.stats.reservas} res · {tenant.stats.clientes} cli
                   </td>
+                  <td className="px-5 py-3 text-center">
+                    <button
+                      onClick={() => {
+                        setTenantEditando(tenant);
+                        setFormEditar({
+                          businessName: tenant.businessName,
+                          email:        tenant.email ?? "",
+                          phone:        "",
+                          isActive:     tenant.isActive,
+                        });
+                        setErrorEdicion("");
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium
+                                 border border-blue-200 hover:border-blue-400
+                                 px-3 py-1 rounded-lg transition-colors">
+                      ✏️ Editar
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Modal editar tenant */}
+      {tenantEditando && (
+        <div className="fixed inset-0 bg-black/40 flex items-center
+                        justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+            <h2 className="text-base font-semibold text-gray-900 mb-4">
+              Editar tenant
+            </h2>
+
+            {errorEdicion && (
+              <div className="bg-red-50 text-red-600 text-sm rounded-xl
+                              px-4 py-3 mb-4">{errorEdicion}</div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Nombre *</label>
+                <input type="text"
+                  value={formEditar.businessName}
+                  onChange={e => setFormEditar({ ...formEditar, businessName: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2
+                             text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Email</label>
+                <input type="email"
+                  value={formEditar.email}
+                  onChange={e => setFormEditar({ ...formEditar, email: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2
+                             text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Teléfono</label>
+                <input type="text"
+                  value={formEditar.phone}
+                  onChange={e => setFormEditar({ ...formEditar, phone: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2
+                             text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div className="flex items-center gap-3 pt-1">
+                <input type="checkbox" id="tenantActivo"
+                  checked={formEditar.isActive}
+                  onChange={e => setFormEditar({ ...formEditar, isActive: e.target.checked })}
+                  className="w-4 h-4 rounded" />
+                <label htmlFor="tenantActivo" className="text-sm text-gray-600">
+                  Tenant activo
+                </label>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setTenantEditando(null)}
+                className="flex-1 border border-gray-200 text-gray-600 text-sm
+                           font-medium py-2 rounded-xl hover:bg-gray-50 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={guardarEdicionTenant} disabled={guardandoEdicion}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300
+                           text-white text-sm font-medium py-2 rounded-xl transition-colors">
+                {guardandoEdicion ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -55,6 +55,11 @@ export default function ReservasCliente() {
   const [motivoCancelacion, setMotivoCancelacion]   = useState("");
   const [cancelando, setCancelando]                 = useState(false);
 
+    // Editar notas
+  const [reservaEditandoNotas, setReservaEditandoNotas] = useState<Reserva | null>(null);
+  const [notasEditar, setNotasEditar]                   = useState("");
+  const [guardandoNotas, setGuardandoNotas]             = useState(false);
+
   // Formulario nueva reserva
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [form, setForm] = useState({
@@ -160,7 +165,22 @@ export default function ReservasCliente() {
     } catch { setError("Error de conexión"); }
     finally  { setCancelando(false); }
   }
-
+  async function guardarNotas() {
+  if (!reservaEditandoNotas) return;
+  setGuardandoNotas(true);
+  try {
+    const res = await fetch(`/api/reservas/${reservaEditandoNotas.id}`, {
+      method:  "PUT",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ notes: notasEditar }),
+    });
+    if (res.ok) {
+      setReservaEditandoNotas(null);
+      await cargarReservas();
+    }
+  } catch { console.error("Error guardando notas"); }
+  finally  { setGuardandoNotas(false); }
+}
   return (
     <div>
       {/* Encabezado */}
@@ -260,79 +280,132 @@ export default function ReservasCliente() {
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-50">
-                <th className="text-left text-xs text-gray-400 font-medium px-5 py-3">Horario</th>
-                <th className="text-left text-xs text-gray-400 font-medium px-5 py-3">Cliente</th>
-                <th className="text-left text-xs text-gray-400 font-medium px-5 py-3">Cancha</th>
-                <th className="text-right text-xs text-gray-400 font-medium px-5 py-3">Total</th>
-                <th className="text-right text-xs text-gray-400 font-medium px-5 py-3">Abonado</th>
-                <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Estado</th>
-                <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Pago</th>
-                <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Cancelar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reservas.map((reserva, i) => {
-                const s = SEMAFORO[reserva.paymentStatus];
-                return (
-                  <tr key={reserva.id}
-                      className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                    <td className="px-5 py-3 text-sm font-medium text-gray-900">
-                      {reserva.startTime} – {reserva.endTime}
-                    </td>
-                    <td className="px-5 py-3">
-                      <p className="text-sm text-gray-900">{reserva.customer.fullName}</p>
-                      <p className="text-xs text-gray-400">{reserva.customer.phone}</p>
-                    </td>
-                    <td className="px-5 py-3 text-sm text-gray-600">{reserva.field.name}</td>
-                    <td className="px-5 py-3 text-sm text-right font-medium text-gray-900">
-                      ${Number(reserva.totalAmount).toLocaleString("es-CO")}
-                    </td>
-                    <td className="px-5 py-3 text-sm text-right text-gray-600">
-                      ${Number(reserva.paidAmount).toLocaleString("es-CO")}
-                    </td>
-                    <td className="px-5 py-3 text-center">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${s.bg} ${s.text}`}>
-                        {s.label}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-center">
-                      {reserva.paymentStatus !== "paid" && (
-                        <button
-                          onClick={() => {
-                            setReservaSeleccionada(reserva);
-                            setErrorPago("");
-                            setFormPago({ amount: "", paymentMethod: "nequi", reference: "", notes: "" });
-                          }}
-                          className="text-xs text-green-600 hover:text-green-800 font-medium
-                                     border border-green-200 hover:border-green-400
-                                     px-3 py-1 rounded-lg transition-colors">
-                          💰 Pago
-                        </button>
-                      )}
-                    </td>
-                    <td className="px-5 py-3 text-center">
-                      {reserva.status !== "cancelled" && (
-                        <button
-                          onClick={() => {
-                            setReservaACancelar(reserva);
-                            setMotivoCancelacion("");
-                          }}
-                          className="text-xs text-red-500 hover:text-red-700 font-medium
-                                     border border-red-200 hover:border-red-400
-                                     px-3 py-1 rounded-lg transition-colors">
-                          ✕ Cancelar
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+  <thead>
+    <tr className="border-b border-gray-50">
+      <th className="text-left text-xs text-gray-400 font-medium px-5 py-3">Horario</th>
+      <th className="text-left text-xs text-gray-400 font-medium px-5 py-3">Cliente</th>
+      <th className="text-left text-xs text-gray-400 font-medium px-5 py-3">Cancha</th>
+      <th className="text-right text-xs text-gray-400 font-medium px-5 py-3">Total</th>
+      <th className="text-right text-xs text-gray-400 font-medium px-5 py-3">Abonado</th>
+      <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Estado</th>
+      <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Pago</th>
+      <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Cancelar</th>
+      <th className="text-center text-xs text-gray-400 font-medium px-5 py-3">Notas</th>
+    </tr>
+  </thead>
+  <tbody>
+    {reservas.map((reserva, i) => {
+      const s = SEMAFORO[reserva.paymentStatus];
+      return (
+        <tr key={reserva.id}
+            className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+          <td className="px-5 py-3 text-sm font-medium text-gray-900">
+            {reserva.startTime} – {reserva.endTime}
+          </td>
+          <td className="px-5 py-3">
+            <p className="text-sm text-gray-900">{reserva.customer.fullName}</p>
+            <p className="text-xs text-gray-400">{reserva.customer.phone}</p>
+          </td>
+          <td className="px-5 py-3 text-sm text-gray-600">{reserva.field.name}</td>
+          <td className="px-5 py-3 text-sm text-right font-medium text-gray-900">
+            ${Number(reserva.totalAmount).toLocaleString("es-CO")}
+          </td>
+          <td className="px-5 py-3 text-sm text-right text-gray-600">
+            ${Number(reserva.paidAmount).toLocaleString("es-CO")}
+          </td>
+          <td className="px-5 py-3 text-center">
+            <span className={`text-xs px-2 py-1 rounded-full font-medium ${s.bg} ${s.text}`}>
+              {s.label}
+            </span>
+          </td>
+          {/* 💰 Columna Pago */}
+          <td className="px-5 py-3 text-center">
+            {reserva.paymentStatus !== "paid" && (
+              <button
+                onClick={() => {
+                  setReservaSeleccionada(reserva);
+                  setErrorPago("");
+                  setFormPago({ amount: "", paymentMethod: "nequi", reference: "", notes: "" });
+                }}
+                className="text-xs text-green-600 hover:text-green-800 font-medium
+                           border border-green-200 hover:border-green-400
+                           px-3 py-1 rounded-lg transition-colors">
+                💰 Pago
+              </button>
+            )}
+          </td>
+          {/* ✕ Columna Cancelar */}
+          <td className="px-5 py-3 text-center">
+            {reserva.status !== "cancelled" && (
+              <button
+                onClick={() => {
+                  setReservaACancelar(reserva);
+                  setMotivoCancelacion("");
+                }}
+                className="text-xs text-red-500 hover:text-red-700 font-medium
+                           border border-red-200 hover:border-red-400
+                           px-3 py-1 rounded-lg transition-colors">
+                ✕ Cancelar
+              </button>
+            )}
+          </td>
+          {/* 📝 Columna Notas */}
+          <td className="px-5 py-3 text-center">
+            <button
+              onClick={() => {
+                setReservaEditandoNotas(reserva);
+                setNotasEditar(reserva.notes ?? "");
+              }}
+              className="text-xs text-blue-500 hover:text-blue-700 font-medium
+                         border border-blue-200 hover:border-blue-400
+                         px-3 py-1 rounded-lg transition-colors">
+              📝 Notas
+            </button>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
         </div>
       )}
+
+      {/* Modal editar notas */}
+{reservaEditandoNotas && (
+  <div className="fixed inset-0 bg-black/40 flex items-center
+                  justify-center z-50 p-4">
+    <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+      <h2 className="text-base font-semibold text-gray-900 mb-1">
+        Editar notas
+      </h2>
+      <p className="text-sm text-gray-500 mb-4">
+        {reservaEditandoNotas.customer.fullName} —{" "}
+        {reservaEditandoNotas.startTime} a {reservaEditandoNotas.endTime}
+      </p>
+      <textarea
+        rows={3}
+        value={notasEditar}
+        onChange={e => setNotasEditar(e.target.value)}
+        placeholder="Ej: El cliente prefiere cancha 1..."
+        className="w-full border border-gray-200 rounded-xl px-3 py-2
+                   text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
+                   resize-none"
+      />
+      <div className="flex gap-3 mt-4">
+        <button onClick={() => setReservaEditandoNotas(null)}
+          className="flex-1 border border-gray-200 text-gray-600 text-sm
+                     font-medium py-2 rounded-xl hover:bg-gray-50 transition-colors">
+          Cancelar
+        </button>
+        <button onClick={guardarNotas} disabled={guardandoNotas}
+          className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300
+                     text-white text-sm font-medium py-2 rounded-xl transition-colors">
+          {guardandoNotas ? "Guardando..." : "Guardar notas"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Modal de cancelación */}
       {reservaACancelar && (
