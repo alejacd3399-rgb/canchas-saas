@@ -2,8 +2,8 @@ import { StackServerApp } from "@stackframe/stack";
 
 export const stackServerApp = new StackServerApp({
   tokenStore: "nextjs-cookie",
-  projectId: process.env.NEXT_PUBLIC_HEXCLAVE_PROJECT_ID ?? process.env.NEXT_PUBLIC_STACK_PROJECT_ID!,
-  publishableClientKey: process.env.NEXT_PUBLIC_HEXCLAVE_PROJECT_ID ?? process.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY!,
+  projectId: "0aa78963-49b3-427c-9380-f044b037067b",
+  publishableClientKey: "0aa78963-49b3-427c-9380-f044b037067b",
   secretServerKey: process.env.HEXCLAVE_SECRET_SERVER_KEY ?? process.env.STACK_SECRET_SERVER_KEY!,
   urls: {
     afterSignIn:  "/dashboard",
